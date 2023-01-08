@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">CountryCompass</string>
+    <string name="compassDescription">compass</string>
+    <string name="btn_text">This is the direction!</string>
+    <string name="default_country">Germany</string>
 </resources>
