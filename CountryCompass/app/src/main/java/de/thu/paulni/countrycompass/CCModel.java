@@ -48,31 +48,64 @@ public class CCModel {
         double length1 = top.distanceFromOrigin();
         double length2 = projectedTarget.distanceFromOrigin();
         double cos = top.scalarWithPoint(projectedTarget) / (length1 * length2);
-        double cardinalDirection = Math.toDegrees(Math.acos(cos));
+        double targetAngle = Math.toDegrees(Math.acos(cos));
         if(xDiff < 0) {
-            offset = (180-cardinalDirection) * 2;
+            offset = (180-targetAngle) * 2;
             if(yDiff < 0)
-                offset = 360 - 2 * cardinalDirection;
+                offset = 360 - 2 * targetAngle;
         }
-        cardinalDirection += offset;
+        targetAngle += offset;
 
         //Log.d("LOC", here.toString());
         //Log.d("LOC", target.toString());
-        Log.d("LOC", "Angle: " + cardinalDirection + ", Compass Rotation: " + compassRotation);
-
-        if(Math.abs(cardinalDirection - compassRotation) <= threshold) {
+        Log.d("LOC", "Angle: " + targetAngle + ", Compass Rotation: " + compassRotation);
+        double difference = calculateAngleDifference(targetAngle, compassRotation);
+        if(difference <= threshold) {
             // user is right
             view.displayAnswer(true);
+            view.clearHint();
             return true;
         } else {
             // user is wrong
             view.displayAnswer(false);
-            processHint(cardinalDirection, compassRotation);
+            processHint(difference);
             return false;
         }
+        // a = 350, b = 5
+        // a - b = 345
     }
 
-    private void processHint(double cardinalDirection, double compassRotation) {
+    private void processHint(double angleDifference) {
+        String hint = "";
+        if(angleDifference > 90) {
+            hint = "very far off (> 90°)";
+        } else if(angleDifference > 45) {
+            hint = "quite off (> 45°)";
+        } else if(angleDifference > 20) {
+            hint = "slightly off (> 20°)";
+        } else {
+            hint = "very close (< 20°)";
+        }
 
+        view.displayHint(hint);
+    }
+
+    private CardinalDirection determineClosestCD(double angle) {
+        if(angle < 45 || angle >= 315)
+            return CardinalDirection.NORTH;
+        else if(angle >= 45 && angle < 135)
+            return CardinalDirection.EAST;
+        else if(angle >= 135 && angle < 215)
+            return CardinalDirection.SOUTH;
+        else
+            return CardinalDirection.WEST;
+    }
+
+    private double calculateAngleDifference(double ang1, double ang2) {
+        double difference = Math.abs(ang1 - ang2);
+        if(difference > 360.0 - difference) {
+            difference = 360.0 - difference;
+        }
+        return difference;
     }
 }

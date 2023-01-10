@@ -34,4 +34,14 @@ public class CCView {
         FrameLayout fl = controller.findViewById(R.id.frameLayout);
         fl.setBackgroundColor(color);
     }
+
+    public void displayHint(String hint) {
+        TextView hintText = controller.findViewById(R.id.hintText);
+        hintText.setText(String.format("You are %s with your guess.", hint));
+    }
+
+    public void clearHint() {
+        TextView hintText = controller.findViewById(R.id.hintText);
+        hintText.setText("");
+    }
 }
