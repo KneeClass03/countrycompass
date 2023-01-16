@@ -3,4 +3,14 @@
     <string name="compassDescription">compass</string>
     <string name="btn_text">This is the direction!</string>
     <string name="default_country">Germany</string>
+    <string name="indicator">indicator</string>
+    <string name="quarter_1">Quarter 1</string>
+    <string name="quarter_2">Quarter 2</string>
+    <string name="quarter_3">Quarter 3</string>
+    <string name="quarter_4">Quarter 4</string>
+    <string name="default_score">Points: 0</string>
+    <string name="easy_mode">Easy Mode</string>
+    <string name="medium_mode">Medium Mode</string>
+    <string name="hard_mode">Hard Mode</string>
+    <string name="extreme_mode">Extreme Mode</string>
 </resources>

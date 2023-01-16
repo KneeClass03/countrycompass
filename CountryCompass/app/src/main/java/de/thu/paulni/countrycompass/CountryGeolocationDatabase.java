@@ -1,7 +1,9 @@
 package de.thu.paulni.countrycompass;
 
+import android.util.Log;
+
 public class CountryGeolocationDatabase {
-    private final static Country[] countries = new Country[]{
+    public final static Country[] countries = new Country[]{
             new Country("Afghanistan", new GeoPoint(33.93911, 67.709953)),
             new Country("Albania", new GeoPoint(41.153332, 20.168331)),
             new Country("Algeria", new GeoPoint(28.033886, 1.659626)),
@@ -198,7 +200,14 @@ public class CountryGeolocationDatabase {
             new Country("Zimbabwe", new GeoPoint(-19.015438, 29.154857))
     };
 
-    public static Country[] getCountries() {
-        return countries;
+    public static Country getCountry(String name) {
+        for (Country c:
+             countries) {
+            if(c.getName().equals(name)) {
+                Log.d("COU", c.getName());
+                return c;
+            }
+        }
+        return null;
     }
 }

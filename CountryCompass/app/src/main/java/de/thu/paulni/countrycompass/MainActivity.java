@@ -2,22 +2,39 @@ package de.thu.paulni.countrycompass;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
-import android.widget.ImageView;
+import android.widget.Toast;
+
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 
 import java.util.List;
 
@@ -27,11 +44,14 @@ import java.util.List;
 // 3. Use user's location
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-    CCModel model;
-    CCView view;
-    Country selectedCountry;
-    SensorManager sman;
-    Sensor lightSensor;
+    private CCModel model;
+    private CCView view;
+    private Country selectedCountry;
+    private SensorManager sman;
+    private Sensor orientationSensor;
+    private GeoPoint userLocation;
+    private ActivityResultLauncher<String> requestPermissionLauncher;
+    private MenuItem selectedDifficulty;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,65 +59,47 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         setContentView(R.layout.activity_main);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
 
+        //Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
+        //setSupportActionBar(toolbar);
+
         view = new CCView(this);
         model = new CCModel(this, view);
 
         sman = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
         List<Sensor> sensors = sman.getSensorList(Sensor.TYPE_ORIENTATION);
         if (sensors.size() == 0) { finish(); return; }
-        lightSensor = sensors.get(0);
+        orientationSensor = sensors.get(0);
 
-        handleCountrySelection();
-
-        // Register the permissions callback, which handles the user's response to the
-// system permissions dialog. Save the return value, an instance of
-// ActivityResultLauncher, as an instance variable.
-        ActivityResultLauncher<String> requestPermissionLauncher =
+        // Get the location permission
+        requestPermissionLauncher =
                 registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                     if (isGranted) {
-                        // Permission is granted. Continue the action or workflow in your
-                        // app.
+                        checkLocationPermission();
                         Log.d("REQ", "Granted");
                     } else {
-                        // Explain to the user that the feature is unavailable because the
-                        // feature requires a permission that the user has denied. At the
-                        // same time, respect the user's decision. Don't link to system
-                        // settings in an effort to convince the user to change their
-                        // decision.
                         Log.d("REQ", "Denied");
                     }
                 });
+        checkLocationPermission();
 
-        if (ContextCompat.checkSelfPermission(
-                this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED) {
-            // You can use the API that requires the permission.
-            //performAction(...);
-            Log.d("REQ", "Got the permission already!");
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-                // In an educational UI, explain to the user why your app requires this
-                // permission for a specific feature to behave as expected, and what
-                // features are disabled if it's declined. In this UI, include a
-                // "cancel" or "no thanks" button that lets the user continue
-                // using your app without granting the permission.
-                //showInContextUI(...);
-                Log.d("REQ", "Need to show rationale!");
-            } else {
-                // You can directly ask for the permission.
-                // The registered ActivityResultCallback gets the result of this request.
-                requestPermissionLauncher.launch(
-                        Manifest.permission.ACCESS_COARSE_LOCATION);
-                Log.d("REQ", "Got the permission without rationale!");
-            }
-        }
+        handleCountrySelection();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        sman.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_GAME);
+        sman.registerListener(this, orientationSensor, SensorManager.SENSOR_DELAY_GAME);
+
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        if(prefs.contains("COUNTRY")) {
+            //Log.d("COU", "Found in preferences");
+            selectedCountry = CountryGeolocationDatabase.getCountry(prefs.getString("COUNTRY", "Germany"));
+            view.displayCountry(selectedCountry.getName());
+        }
+        model.setPoints(prefs.getInt("POINTS", 0));
+        view.displayScore(model.getPoints());
+        CCModel.setThreshold(prefs.getInt("THRESHOLD", CCModel.Difficulty.MEDIUM));
     }
 
     @Override
@@ -105,6 +107,51 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onPause();
 
         sman.unregisterListener(this);
+
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("COUNTRY", selectedCountry.getName());
+        editor.putInt("POINTS", model.getPoints());
+        if(selectedCountry != null)
+            editor.putInt("DIFF", selectedDifficulty.getItemId());
+        editor.putInt("THRESHOLD", CCModel.getThreshold());
+        editor.apply();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.cc_menu, menu);
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        selectedDifficulty = menu.findItem(prefs.getInt("DIFF", R.id.difficulty_medium));
+        selectedDifficulty.setChecked(true);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if(!selectedDifficulty.equals(item)) {
+            model.setPoints(0);
+            view.displayScore(model.getPoints());
+            selectedDifficulty.setChecked(false);
+            selectedDifficulty = item;
+            selectedDifficulty.setChecked(true);
+            switch (selectedDifficulty.getItemId()) {
+                case R.id.difficulty_easy:
+                    CCModel.setThreshold(CCModel.Difficulty.EASY);
+                    break;
+                case R.id.difficulty_medium:
+                    CCModel.setThreshold(CCModel.Difficulty.MEDIUM);
+                    break;
+                case R.id.difficulty_hard:
+                    CCModel.setThreshold(CCModel.Difficulty.HARD);
+                    break;
+                case R.id.difficulty_extreme:
+                    CCModel.setThreshold(CCModel.Difficulty.EXTREME);
+                default:
+                    return super.onOptionsItemSelected(item);
+            }
+        }
+        return true;
     }
 
     @Override
@@ -122,11 +169,46 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         view.displayCountry(selectedCountry.getName());
     }
 
+    private void checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED) {
+            //Log.d("REQ", "Got the permission already!");
+            FusedLocationProviderClient flpClient = LocationServices.getFusedLocationProviderClient(this);
+            flpClient.getLastLocation()
+                    .addOnSuccessListener(this, location -> {
+                        // Got last known location. In some rare situations this can be null.
+                        if (location != null) {
+                            // Logic to handle location object
+                            userLocation = new GeoPoint(location.getLatitude(), location.getLongitude());
+                            Log.d("LOC", userLocation.toString());
+                        } else {
+                            Log.d("LOC", "location is null!");
+                            userLocation = new GeoPoint(48.401082, 9.987608);
+                            runOnUiThread(() -> Toast.makeText(getApplicationContext(),
+                                    "Unable to receive user location. Using the location of Ulm, Germany.",
+                                    Toast.LENGTH_LONG).show());
+                        }
+                    });
+        } else {
+            requestPermissionLauncher.launch(
+                    Manifest.permission.ACCESS_COARSE_LOCATION);
+
+        }
+    }
+
     public void onDirectionSelected(View button) {
         if(selectedCountry == null) return;
         double compassRotation = -view.getCompassImgRotation();
-        boolean countryFound = model.process(compassRotation, selectedCountry.getLocation());
+        boolean countryFound = model.process(compassRotation, userLocation, selectedCountry.getLocation());
         if(countryFound)
             handleCountrySelection();
+    }
+
+    private void uncheckMenuItems(MenuItem... items) {
+        for (MenuItem item : items) {
+            if(item.isChecked())
+                item.setChecked(false);
+        }
     }
 }

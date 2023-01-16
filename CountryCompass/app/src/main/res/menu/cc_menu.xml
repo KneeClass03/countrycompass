@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:title="@string/easy_mode"
+        android:id="@+id/difficulty_easy"
+        app:showAsAction="never"
+        android:checkable="true"/>
+    <item android:title="@string/medium_mode"
+        android:id="@+id/difficulty_medium"
+        app:showAsAction="never"
+        android:checkable="true" />
+    <item android:title="@string/hard_mode"
+        android:id="@+id/difficulty_hard"
+        app:showAsAction="never"
+        android:checkable="true" />
+    <item android:title="@string/extreme_mode"
+        android:id="@+id/difficulty_extreme"
+        app:showAsAction="never"
+        android:checkable="true" />
+</menu>

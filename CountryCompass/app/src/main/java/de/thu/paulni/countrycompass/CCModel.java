@@ -1,18 +1,35 @@
 package de.thu.paulni.countrycompass;
 
+import android.graphics.Color;
 import android.hardware.SensorEvent;
-import android.location.Location;
 import android.util.Log;
 
+import com.google.android.gms.common.ConnectionResult;
+
 import java.util.Random;
-import java.util.Vector;
 
 public class CCModel {
-    private CCView view;
-    private MainActivity controller;
-    private Random random;
 
-    private final static double threshold = 10.0;
+    public class Difficulty {
+        public final static int EASY = 15;
+        public final static int MEDIUM = 10;
+        public final static int HARD = 5;
+        public final static int EXTREME = 2;
+    }
+
+    private final CCView view;
+    private MainActivity controller;
+    private final Random random;
+
+    private static int threshold = Difficulty.MEDIUM;
+
+    private int points = 0;
+    private final static int reward = 5;
+    private final static int tiny_loss = -1;
+    private final static int small_loss = -2;
+    private final static int medium_loss = -5;
+    private final static int big_loss = -15;
+
 
     public CCModel(MainActivity mainActivity, CCView view) {
         this.controller = mainActivity;
@@ -20,10 +37,17 @@ public class CCModel {
         random = new Random();
     }
 
+    public static void setThreshold(int _threshold) {
+        threshold = _threshold;
+    }
+
+    public static int getThreshold() {
+        return threshold;
+    }
+
     public Country chooseCountry() {
-        Country[] countries = CountryGeolocationDatabase.getCountries();
-        int index = random.nextInt(countries.length);
-        return countries[index];
+        int index = random.nextInt(CountryGeolocationDatabase.countries.length);
+        return CountryGeolocationDatabase.countries[index];
     }
 
     public void rotateCompass(SensorEvent event) {
@@ -32,12 +56,12 @@ public class CCModel {
         view.displayCompassRotation(z);
     }
 
-    public boolean process(double compassRotation, GeoPoint targetPoint) {
+    public boolean process(double compassRotation, GeoPoint userPoint, GeoPoint targetPoint) {
         // idea:
         // 1. calculate the distance vector from current location to target location (internet)
         // 2. find out if this vector is parallel or just slightly off from the cardinal direction of
         //    the compass
-        MercatorPoint here = new MercatorPoint(new GeoPoint(51.165691, 10.451526));
+        MercatorPoint here = new MercatorPoint(userPoint);
         MercatorPoint target = new MercatorPoint(targetPoint);
 
         double offset = 0;
@@ -55,50 +79,62 @@ public class CCModel {
                 offset = 360 - 2 * targetAngle;
         }
         targetAngle += offset;
-
-        //Log.d("LOC", here.toString());
-        //Log.d("LOC", target.toString());
-        Log.d("LOC", "Angle: " + targetAngle + ", Compass Rotation: " + compassRotation);
         double difference = calculateAngleDifference(targetAngle, compassRotation);
-        if(difference <= threshold) {
-            // user is right
-            view.displayAnswer(true);
-            view.clearHint();
-            return true;
+        boolean found = difference <= threshold;
+        if(!found) {
+            processHint(targetAngle);
         } else {
-            // user is wrong
-            view.displayAnswer(false);
-            processHint(difference);
-            return false;
+            view.highlightCircle(Color.GREEN);
+            Thread thread = new Thread(() -> {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignored) {}
+                controller.runOnUiThread(() -> view.highlightCircle(Color.GRAY));
+            });
+            thread.start();
         }
-        // a = 350, b = 5
-        // a - b = 345
+        points += processFeedback(difference);
+        view.displayScore(points);
+        return found;
     }
 
-    private void processHint(double angleDifference) {
-        String hint = "";
+    private void processHint(double targetAngle) {
+        int color = Color.YELLOW;
+        int quarter = 0;
+        if(targetAngle >= 0 && targetAngle < 90) {
+            quarter = 1;
+        } else if(targetAngle >= 90 && targetAngle < 180) {
+            quarter = 4;
+        } else if(targetAngle >= 180 && targetAngle < 270) {
+            quarter = 3;
+        } else if(targetAngle >= 270 && targetAngle < 360) {
+            quarter = 2;
+        }
+        view.highlightQuarter(quarter, color);
+    }
+
+    private int processFeedback(double angleDifference) {
+        String feedback = "";
+        int pointDifference = 0;
         if(angleDifference > 90) {
-            hint = "very far off (> 90°)";
+            feedback = "very far off (> 90°)";
+            pointDifference = big_loss;
         } else if(angleDifference > 45) {
-            hint = "quite off (> 45°)";
+            feedback = "quite off (> 45°)";
+            pointDifference = medium_loss;
         } else if(angleDifference > 20) {
-            hint = "slightly off (> 20°)";
+            feedback = "slightly off (> 20°)";
+            pointDifference = small_loss;
+        } else if(angleDifference > threshold) {
+            feedback = "very close (< 20°)";
+            pointDifference = tiny_loss;
         } else {
-            hint = "very close (< 20°)";
+            feedback = "Great job!";
+            pointDifference = reward;
         }
 
-        view.displayHint(hint);
-    }
-
-    private CardinalDirection determineClosestCD(double angle) {
-        if(angle < 45 || angle >= 315)
-            return CardinalDirection.NORTH;
-        else if(angle >= 45 && angle < 135)
-            return CardinalDirection.EAST;
-        else if(angle >= 135 && angle < 215)
-            return CardinalDirection.SOUTH;
-        else
-            return CardinalDirection.WEST;
+        view.displayFeedback(feedback);
+        return pointDifference;
     }
 
     private double calculateAngleDifference(double ang1, double ang2) {
@@ -107,5 +143,13 @@ public class CCModel {
             difference = 360.0 - difference;
         }
         return difference;
+    }
+
+    public void setPoints(int points) {
+        this.points = points;
+    }
+
+    public int getPoints() {
+        return points;
     }
 }
