@@ -1,7 +1,9 @@
 package de.thu.paulni.countrycompass;
 
+import androidx.annotation.NonNull;
+
 /**
- * Immutable point in geo coordinates (latitude, longitude) with accuracy in km
+ * Represents a point in geo coordinates (latitude, longitude) with accuracy in km
  */
 public class GeoPoint {
 
@@ -11,6 +13,8 @@ public class GeoPoint {
 
     /**
      * New geo point without accuracy
+     * @param lat : latitude
+     * @param lon : longitude
      */
     public GeoPoint(double lat, double lon){
         this(lat, lon, -1d);
@@ -34,24 +38,10 @@ public class GeoPoint {
         return this.lon;
     }
 
-    /**
-     * @return accuracy in km. If < 0, accuracy is not defined
-     */
-    public double getAccuracy(){
-        return this.accuracy;
-    }
-
+    @NonNull
     @Override
     public String toString(){
         return "lat = " + this.lat + "; lon = " + this.lon + (this.accuracy < 0 ? "" : ("; accuracy = " + this.accuracy));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof GeoPoint) || o == null) return false;
-        GeoPoint g = (GeoPoint) o;
-        return g.lat == this.lat && g.lon == this.lon && g.accuracy == this.accuracy;
     }
 
 

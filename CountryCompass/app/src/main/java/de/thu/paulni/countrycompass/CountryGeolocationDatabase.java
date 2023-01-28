@@ -1,8 +1,12 @@
 package de.thu.paulni.countrycompass;
 
-import android.util.Log;
-
+/**
+ * A database containing all countries of the world and their corresponding geographical locations.
+ */
 public class CountryGeolocationDatabase {
+    /**
+     * A list of all countries of the world, with each item being a {@link Country country object}.
+     */
     public final static Country[] countries = new Country[]{
             new Country("Afghanistan", new GeoPoint(33.93911, 67.709953)),
             new Country("Albania", new GeoPoint(41.153332, 20.168331)),
@@ -200,11 +204,14 @@ public class CountryGeolocationDatabase {
             new Country("Zimbabwe", new GeoPoint(-19.015438, 29.154857))
     };
 
+    /**
+     * @param name : the name of the country to be found
+     * @return the country object or null if it was not found
+     */
     public static Country getCountry(String name) {
         for (Country c:
              countries) {
             if(c.getName().equals(name)) {
-                Log.d("COU", c.getName());
                 return c;
             }
         }

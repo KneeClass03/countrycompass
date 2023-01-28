@@ -2,14 +2,23 @@ package de.thu.paulni.countrycompass;
 
 import androidx.annotation.NonNull;
 
+/**
+ * Represents a point on the Mercator projection of the globe.
+ * @see <a href="https://en.wikipedia.org/wiki/Mercator_projection">Mercator Projection Wiki</a>
+ */
 public class MercatorPoint {
-    private final static double R = 6371.0;
     private final double x;
     private final double y;
 
+    /**
+     * Creates a new MercatorPoint by projecting the given latitude and longitude onto a Mercator map.
+     * @param gp : the geographical point which this point is based on
+     */
     public MercatorPoint(GeoPoint gp) {
-        double mapHeight = 100;//R*2;
-        double mapWidth = 200;//(mapHeight * Math.PI);
+        // Width and height of the map that the global coordinates of gp are projected onto.
+        // Though these are not arbitrary, they seemed to fit as a good approximation for this use case.
+        double mapHeight = 100;
+        double mapWidth = 200;
 
         x = (gp.getLon()+180) * (mapWidth/360);
 
@@ -18,25 +27,12 @@ public class MercatorPoint {
         y = (mapHeight/2)-(mapWidth*mercN/(2*Math.PI));
     }
 
-    public MercatorPoint(double x, double y) {
-        this.x = x;
-        this.y = y;
-    }
-
     public double getX() {
         return x;
     }
 
     public double getY() {
         return y;
-    }
-
-    public double distanceFromOrigin() {
-        return Math.sqrt(x*x + y*y);
-    }
-
-    public double scalarWithPoint(MercatorPoint mp) {
-        return x * mp.getX() + y * mp.getY();
     }
 
     @NonNull
